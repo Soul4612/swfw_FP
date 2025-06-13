@@ -2,6 +2,7 @@ package fcu.iecs;
 
 import fcu.iecs.model.*;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -21,18 +22,20 @@ public class Main {
         }
 
         System.out.println("\n===== categories ex =====");
-        Set<String> categories = CategoryManager.load();
-        System.out.println("目前分類：" + categories);
+        Set<String> expenseCategories = CategoryManager.load(RecordType.EXPENSE);
+        Set<String> incomeCategories = CategoryManager.load(RecordType.INCOME);
+        System.out.println("目前分類：" + expenseCategories);
+        System.out.println("目前分類：" + incomeCategories);
 
         System.out.println("\n===== records ex =====");
 
 //        System.out.println(RecordEntry.getCategories());
         List<RecordEntry> records = new ArrayList<>();
-//        records.add(new RecordEntry(LocalDate.of(1991, 7, 31), "古靈閣提款", Type.INCOME, "其它", 7500));
-//        records.add(new RecordEntry(LocalDate.of(1991, 7, 31), "我的第一支魔杖", Type.EXPENSE, "學用品", 3500));
-//        CategoryManager.addCategory("學用品");
-//        records.add(new RecordEntry(LocalDate.of(1991, 9, 1), "特快上的零食", Type.EXPENSE, "零食", 500));
-//        CategoryManager.addCategory("零食");
+//        records.add(new RecordEntry(LocalDate.of(1991, 7, 31), "古靈閣提款", RecordType.INCOME, "其它", 7500));
+//        records.add(new RecordEntry(LocalDate.of(1991, 7, 31), "我的第一支魔杖", RecordType.EXPENSE, "學用品", 3500));
+//        CategoryManager.addCategory(RecordType.EXPENSE, "學用品");
+//        records.add(new RecordEntry(LocalDate.of(1991, 9, 1), "特快上的零食", RecordType.EXPENSE, "零食", 500));
+//        CategoryManager.addCategory(RecordType.EXPENSE, "零食");
 //        RecordManager.save(records);
         records = RecordManager.load();
         int balance = 0;
