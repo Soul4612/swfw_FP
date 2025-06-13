@@ -3,21 +3,14 @@ package fcu.iecs.model;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class RecordEntry extends Entry {
-    private static List<String> categories = new ArrayList<>();
-
     private Type type;
 
     private String category;
 
     private int amount;
-
-    static {
-        categories.add("早餐");
-        categories.add("午餐");
-        categories.add("晚餐");
-    }
 
     public RecordEntry() {
     }
@@ -27,10 +20,6 @@ public class RecordEntry extends Entry {
         this.type = type;
         this.category = category;
         this.amount = amount;
-    }
-
-    public static List<String> getCategories() {
-        return categories;
     }
 
     public Type getType() {

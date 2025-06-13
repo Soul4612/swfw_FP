@@ -4,6 +4,7 @@ import fcu.iecs.model.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class Main {
     public static void main(String[] args) {
@@ -19,7 +20,14 @@ public class Main {
             System.out.println(e);
         }
 
+        System.out.println("\n===== categories ex =====");
+        Set<String> categories = CategoryManager.load();
+        System.out.println("目前分類：" + categories);
+
+        CategoryManager.addCategory("交通");
+        CategoryManager.removeCategory("午餐");
         System.out.println("\n===== records ex =====");
+
 //        System.out.println(RecordEntry.getCategories());
         List<RecordEntry> records = new ArrayList<>();
 //        records.add(new RecordEntry(LocalDate.of(1991, 7, 31), "古靈閣提款", Type.INCOME, "其它", 7500));
