@@ -2,7 +2,6 @@ package fcu.iecs;
 
 import fcu.iecs.model.*;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -39,7 +38,7 @@ public class Main {
         int balance = 0;
         for (RecordEntry e : records) {
             System.out.println(e);
-            if (e.getType() == Type.EXPENSE) {
+            if (e.getRecordType() == RecordType.EXPENSE) {
                 balance -= e.getAmount();
             } else {
                 balance += e.getAmount();

@@ -1,6 +1,6 @@
 package fcu.iecs.model;
 
-public enum Type {
+public enum RecordType {
     EXPENSE {
         @Override
         public String toString() {
