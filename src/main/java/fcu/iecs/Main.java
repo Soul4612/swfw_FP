@@ -1,12 +1,7 @@
 package fcu.iecs;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import fcu.iecs.model.*;
 
-import java.io.File;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 

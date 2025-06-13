@@ -1,4 +1,4 @@
-package fcu.iecs;
+package fcu.iecs.model;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -7,32 +7,10 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.io.File;
 import java.io.IOException;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-public class DiaryEntry extends Entry {
-    private String content;
-
-    public DiaryEntry() {
-    }
-
-    public DiaryEntry(LocalDate date, String title, String content) {
-        super(date, title);
-        this.content = content;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    @Override
-    public String toString() {
-        return "[日記] %s\n%s\n%s".formatted(CDF.of(date), title, content);
-    }
-}
-
-class DiaryManager {
+public class DiaryManager {
     private static final File FILE = new File("Diary.json");
     private static final ObjectMapper mapper = new ObjectMapper();
 

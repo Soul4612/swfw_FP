@@ -1,4 +1,4 @@
-package fcu.iecs;
+package fcu.iecs.model;
 
 import java.time.LocalDate;
 
