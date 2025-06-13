@@ -8,6 +8,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class RecordManager {
@@ -20,6 +21,7 @@ public class RecordManager {
     }
 
     public static void save(List<RecordEntry> records) {
+        Collections.sort(records);
         try {
             mapper.writerWithDefaultPrettyPrinter().writeValue(FILE, records);
         } catch (IOException e) {

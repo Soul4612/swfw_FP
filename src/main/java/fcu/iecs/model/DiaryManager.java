@@ -8,6 +8,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class DiaryManager {
@@ -20,6 +21,7 @@ public class DiaryManager {
     }
 
     public static void save(List<DiaryEntry> diaries) {
+        Collections.sort(diaries);
         try {
             mapper.writerWithDefaultPrettyPrinter().writeValue(FILE, diaries);
         } catch (IOException e) {

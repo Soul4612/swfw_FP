@@ -17,11 +17,12 @@ public class CategoryManager {
             defaults.add("早餐");
             defaults.add("午餐");
             defaults.add("晚餐");
+            defaults.add("其它");
             save(defaults);
             return defaults;
         }
         try {
-            return mapper.readValue(FILE, mapper.getTypeFactory().constructCollectionType(Set.class, String.class));
+            return mapper.readValue(FILE, mapper.getTypeFactory().constructCollectionType(LinkedHashSet.class, String.class));
         } catch (IOException e) {
             throw new RuntimeException("無法讀取分類資料", e);
         }

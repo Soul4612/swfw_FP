@@ -2,6 +2,7 @@ package fcu.iecs;
 
 import fcu.iecs.model.*;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -24,15 +25,15 @@ public class Main {
         Set<String> categories = CategoryManager.load();
         System.out.println("目前分類：" + categories);
 
-        CategoryManager.addCategory("交通");
-        CategoryManager.removeCategory("午餐");
         System.out.println("\n===== records ex =====");
 
 //        System.out.println(RecordEntry.getCategories());
         List<RecordEntry> records = new ArrayList<>();
 //        records.add(new RecordEntry(LocalDate.of(1991, 7, 31), "古靈閣提款", Type.INCOME, "其它", 7500));
 //        records.add(new RecordEntry(LocalDate.of(1991, 7, 31), "我的第一支魔杖", Type.EXPENSE, "學用品", 3500));
+//        CategoryManager.addCategory("學用品");
 //        records.add(new RecordEntry(LocalDate.of(1991, 9, 1), "特快上的零食", Type.EXPENSE, "零食", 500));
+//        CategoryManager.addCategory("零食");
 //        RecordManager.save(records);
         records = RecordManager.load();
         int balance = 0;
