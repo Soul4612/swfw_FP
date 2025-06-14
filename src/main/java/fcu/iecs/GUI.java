@@ -1,15 +1,20 @@
 package fcu.iecs;
 
-import com.formdev.flatlaf.FlatLightLaf;
+import com.formdev.flatlaf.FlatDarkLaf;
 import fcu.iecs.model.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableCellEditor;
+import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.awt.event.*;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.TextStyle;
+import java.util.Locale;
 import java.util.List;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -38,12 +43,319 @@ public class GUI {
     private Set<String> expenseCategories;
     private Set<String> incomeCategories;
 
+    private String generateContentSummary(String content) {
+        return content.length() > 10 ? content.substring(0, 10) + "..." : content;
+    }
+
+
     // 日記資料
     private List<DiaryEntry> diaryList;
 
+    class ButtonRenderer extends JPanel implements TableCellRenderer {
+        private final JButton viewBtn = new JButton("檢視");
+        private final JButton deleteBtn = new JButton("刪除");
+
+        public ButtonRenderer() {
+            setLayout(new FlowLayout(FlowLayout.CENTER, 5, 0));
+            add(viewBtn);
+            add(deleteBtn);
+            viewBtn.setFocusable(false);
+            deleteBtn.setFocusable(false);
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+            Color bg = isSelected ? table.getSelectionBackground() : table.getBackground();
+            Color fg = isSelected ? table.getSelectionForeground() : table.getForeground();
+
+            setBackground(bg); // JPanel 背景仍跟欄位一樣，保持協調
+
+            // 按鈕背景改深灰色，跟欄位分開
+            viewBtn.setBackground(Color.DARK_GRAY);
+            deleteBtn.setBackground(Color.DARK_GRAY);
+
+            // 按鈕文字改白色或淺色，保證看得清楚
+            viewBtn.setForeground(Color.WHITE);
+            deleteBtn.setForeground(Color.WHITE);
+
+            // 如果想避免選取時按鈕變色，可考慮加這行，保持深灰色不變
+            viewBtn.setOpaque(true);
+            deleteBtn.setOpaque(true);
+
+            viewBtn.setPreferredSize(new Dimension(60, 19));
+            deleteBtn.setPreferredSize(new Dimension(60, 19));
+
+            return this;
+        }
+    }
+
+    private static String formatDateWithWeekday(LocalDate date) {
+        String formattedDate = date.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+        String[] chineseDays = {"一", "二", "三", "四", "五", "六", "日"};
+        String weekday = chineseDays[date.getDayOfWeek().getValue() - 1];
+        return formattedDate + " (" + weekday + ")";
+    }
+
+    private void reloadDiaryTable() {
+        diaryTableModel.setRowCount(0); // 清空表格
+
+        for (DiaryEntry entry : diaryList) {
+            diaryTableModel.addRow(new Object[]{
+                    formatDateWithWeekday(entry.getDate()),
+                    entry.getTitle(),
+                    generateContentSummary(entry.getContent()),
+                    "操作"
+            });
+        }
+    }
+
+    class ButtonEditor extends AbstractCellEditor implements TableCellEditor {
+        private final JPanel panel = new JPanel();
+        private final JButton viewBtn = new JButton("檢視");
+        private final JButton deleteBtn = new JButton("刪除");
+        private int currentRow;
+
+        private DefaultTableModel diaryTableModel;
+        public ButtonEditor(JCheckBox checkBox, DefaultTableModel model) {
+            this.diaryTableModel = model;
+            panel.setLayout(new FlowLayout(FlowLayout.CENTER, 5, 0));
+            panel.add(viewBtn);
+            panel.add(deleteBtn);
+
+            viewBtn.addActionListener(e -> {
+                DiaryEntry entry = diaryList.get(currentRow);
+                DiaryViewDialog dialog = new DiaryViewDialog(
+                        (Frame) SwingUtilities.getWindowAncestor(panel),
+                        entry
+                );
+                dialog.setVisible(true);
+
+                if (dialog.isUpdated()) {
+                    // 1. 更新 DiaryEntry 本體 (這你原本應該做了)
+                    // 2. 重新排序 diaryList，確保順序正確
+                    diaryList.sort(Comparator.comparing(DiaryEntry::getDate));
+                    // 3. 重新載入表格，且格式化日期為 YYYY/MM/DD
+                    reloadDiaryTable();
+                }
+
+                fireEditingStopped();
+            });
+
+            deleteBtn.addActionListener(e -> {
+                int confirm = JOptionPane.showConfirmDialog(panel,
+                        "確定要刪除此日記？", "刪除確認", JOptionPane.YES_NO_OPTION);
+                if (confirm == JOptionPane.YES_OPTION) {
+                    diaryList.remove(currentRow);
+                    DiaryManager.save(diaryList);
+                    refreshDiaryTable();
+                }
+                fireEditingStopped();
+            });
+        }
+
+        @Override
+        public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
+            this.currentRow = row;
+            return panel;
+        }
+
+        @Override
+        public Object getCellEditorValue() {
+            return "";
+        }
+    }
+
+    // GUI.java 裡面，class GUI 內部新增這段
+    private class DiaryViewDialog extends JDialog {
+        private DiaryEntry entry;  // 存日記物件
+        private boolean updated = false;  // 屬於這個對話框的欄位
+
+        public DiaryViewDialog(Frame owner, DiaryEntry entry) {
+            super(owner, "日記檢視", true);
+            this.entry = entry;
+
+            setSize(400, 300);
+            setLocationRelativeTo(owner);
+
+            // 改成用 formatDateWithWeekday 顯示日期 + 星期
+            JLabel dateLabel = new JLabel("日期: " + formatDateWithWeekday(entry.getDate()));
+            dateLabel.setFont(new Font("微軟正黑體", Font.BOLD, 14));
+
+            JLabel titleLabel = new JLabel("標題: " + entry.getTitle());
+            titleLabel.setFont(new Font("微軟正黑體", Font.BOLD, 14));
+
+            JTextArea contentArea = new JTextArea(entry.getContent());
+            contentArea.setLineWrap(true);
+            contentArea.setWrapStyleWord(true);
+            contentArea.setEditable(false);
+            JScrollPane scrollPane = new JScrollPane(contentArea);
+
+            JButton editButton = new JButton("編輯");
+            editButton.addActionListener(e -> {
+                DiaryEditDialog editDialog = new DiaryEditDialog(
+                        (Frame) SwingUtilities.getWindowAncestor(this),
+                        entry.getDate(),
+                        entry.getTitle(),
+                        entry.getContent()
+                );
+                editDialog.setVisible(true);
+
+                if (editDialog.isSaved()) {
+                    entry.edit(
+                            editDialog.getDate(),
+                            editDialog.getTitle(),
+                            editDialog.getContent()
+                    );
+                    updated = true;  // 成功編輯後設為 true
+                    this.dispose();
+                }
+            });
+
+            JPanel topPanel = new JPanel(new GridLayout(2, 1, 5, 5));
+            topPanel.add(dateLabel);
+            topPanel.add(titleLabel);
+
+            JPanel bottomPanel = new JPanel(new BorderLayout(5, 5));
+            bottomPanel.add(scrollPane, BorderLayout.CENTER);
+            bottomPanel.add(editButton, BorderLayout.SOUTH);
+
+            getContentPane().setLayout(new BorderLayout(10, 10));
+            getContentPane().add(topPanel, BorderLayout.NORTH);
+            getContentPane().add(bottomPanel, BorderLayout.CENTER);
+
+            ((JComponent) getContentPane()).setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        }
+
+        public boolean isUpdated() {
+            return updated;
+        }
+    }
+
+    private class DiaryEditDialog extends JDialog {
+        private JComboBox<Integer> yearCombo;
+        private JComboBox<Integer> monthCombo;
+        private JComboBox<Integer> dayCombo;
+        private JTextField titleField;
+        private JTextArea contentArea;
+        private boolean saved = false;
+
+        public DiaryEditDialog(Frame owner, LocalDate date, String title, String content) {
+            super(owner, "編輯日記", true);
+            setSize(480, 400);
+            setLocationRelativeTo(owner);
+
+            // 建立年、月、日下拉選單
+            yearCombo = new JComboBox<>();
+            for (int y = 2020; y <= 2050; y++) yearCombo.addItem(y);
+            yearCombo.setSelectedItem(date.getYear());
+
+            monthCombo = new JComboBox<>();
+            for (int m = 1; m <= 12; m++) monthCombo.addItem(m);
+            monthCombo.setSelectedItem(date.getMonthValue());
+
+            dayCombo = new JComboBox<>();
+            for (int d = 1; d <= 31; d++) dayCombo.addItem(d);
+            dayCombo.setSelectedItem(date.getDayOfMonth());
+
+            titleField = new JTextField(title);
+            contentArea = new JTextArea(content);
+            contentArea.setLineWrap(true);
+            contentArea.setWrapStyleWord(true);
+            contentArea.setFont(new Font("微軟正黑體", Font.PLAIN, 14));
+
+            // formPanel 用 BorderLayout 分成上下兩區
+            JPanel formPanel = new JPanel(new BorderLayout(5, 5));
+
+            // 上方：日期 + 標題
+            JPanel topPanel = new JPanel();
+            topPanel.setLayout(new BoxLayout(topPanel, BoxLayout.Y_AXIS));
+
+            // 日期區
+            JPanel datePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            datePanel.add(new JLabel("日期:"));
+            datePanel.add(yearCombo);
+            datePanel.add(new JLabel("年"));
+            datePanel.add(monthCombo);
+            datePanel.add(new JLabel("月"));
+            datePanel.add(dayCombo);
+            datePanel.add(new JLabel("日"));
+
+            // 標題區
+            JPanel titlePanel = new JPanel(new BorderLayout());
+            titlePanel.add(new JLabel("標題:"), BorderLayout.NORTH);
+            titlePanel.add(titleField, BorderLayout.CENTER);
+
+            topPanel.add(datePanel);
+            topPanel.add(titlePanel);
+
+            formPanel.add(topPanel, BorderLayout.NORTH);
+
+            // 中央：內容區，標籤＋大編輯框
+            JPanel contentPanel = new JPanel(new BorderLayout());
+            contentPanel.add(new JLabel("內容:"), BorderLayout.NORTH);
+
+            JScrollPane scrollPane = new JScrollPane(contentArea);
+            scrollPane.setPreferredSize(new Dimension(440, 200));
+            contentPanel.add(scrollPane, BorderLayout.CENTER);
+
+            formPanel.add(contentPanel, BorderLayout.CENTER);
+
+            // 按鈕區
+            JButton saveBtn = new JButton("保存");
+            JButton cancelBtn = new JButton("取消");
+
+            saveBtn.addActionListener(e -> {
+                try {
+                    LocalDate editedDate = getDate();
+                    saved = true;
+                    setVisible(false);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this, "請選擇有效的日期", "錯誤", JOptionPane.ERROR_MESSAGE);
+                }
+            });
+
+            cancelBtn.addActionListener(e -> {
+                saved = false;
+                setVisible(false);
+            });
+
+            JPanel btnPanel = new JPanel();
+            btnPanel.add(saveBtn);
+            btnPanel.add(cancelBtn);
+
+            getContentPane().setLayout(new BorderLayout(10, 10));
+            getContentPane().add(formPanel, BorderLayout.CENTER);
+            getContentPane().add(btnPanel, BorderLayout.SOUTH);
+            ((JComponent) getContentPane()).setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        }
+
+        public boolean isSaved() {
+            return saved;
+        }
+
+        public LocalDate getDate() {
+            return LocalDate.of(
+                    (Integer) yearCombo.getSelectedItem(),
+                    (Integer) monthCombo.getSelectedItem(),
+                    (Integer) dayCombo.getSelectedItem()
+            );
+        }
+
+        public String getTitle() {
+            return titleField.getText();
+        }
+
+        public String getContent() {
+            return contentArea.getText();
+        }
+    }
+
+
+
+
     public GUI() {
         try {
-            UIManager.setLookAndFeel(new FlatLightLaf());
+            UIManager.setLookAndFeel(new FlatDarkLaf());
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -56,6 +368,7 @@ public class GUI {
         frame = new JFrame("記帳與日記管理系統");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(900, 600);
+        frame.setMinimumSize(new Dimension(800, 600));  // 設定視窗最小尺寸
         frame.setLocationRelativeTo(null);
 
         tabbedPane = new JTabbedPane();
@@ -107,6 +420,12 @@ public class GUI {
         JScrollPane scrollPane = new JScrollPane(recordTable);
         panel.add(scrollPane, BorderLayout.CENTER);
 
+        // 固定日期欄寬 (假設第0欄是日期欄)
+        recordTable.getColumnModel().getColumn(0).setPreferredWidth(100);
+        recordTable.getColumnModel().getColumn(0).setMaxWidth(100);
+        recordTable.getColumnModel().getColumn(0).setMinWidth(100);
+
+
         // 底部按鈕
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         addRecordBtn = new JButton("新增");
@@ -133,10 +452,10 @@ public class GUI {
         panel.setBorder(new EmptyBorder(10,10,10,10));
 
         diaryTableModel = new DefaultTableModel(
-                new Object[]{"日期", "標題", "內容摘要"}, 0) {
+                new Object[]{"日期", "標題", "內容摘要", "操作"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return false;
+                return column == 3;  // 只有操作欄可互動（實際上由按鈕 editor 處理）
             }
         };
         diaryTable = new JTable(diaryTableModel);
@@ -144,21 +463,23 @@ public class GUI {
         JScrollPane scrollPane = new JScrollPane(diaryTable);
         panel.add(scrollPane, BorderLayout.CENTER);
 
+        // 固定日期欄寬 (假設第0欄是日期欄)
+        diaryTable.getColumnModel().getColumn(0).setPreferredWidth(150);
+        diaryTable.getColumnModel().getColumn(0).setMaxWidth(150);
+        diaryTable.getColumnModel().getColumn(0).setMinWidth(150);
+
+        // 這裡放設定按鈕欄的 CellRenderer 和 CellEditor
+        diaryTable.getColumnModel().getColumn(3).setCellRenderer(new ButtonRenderer());
+        diaryTable.getColumnModel().getColumn(3).setCellEditor(new ButtonEditor(new JCheckBox(), diaryTableModel));
+
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         addDiaryBtn = new JButton("新增");
-        deleteDiaryBtn = new JButton("刪除");
-        deleteDiaryBtn.setEnabled(false);
         btnPanel.add(addDiaryBtn);
-        btnPanel.add(deleteDiaryBtn);
         panel.add(btnPanel, BorderLayout.SOUTH);
 
-        diaryTable.getSelectionModel().addListSelectionListener(e -> {
-            deleteDiaryBtn.setEnabled(diaryTable.getSelectedRow() != -1);
-        });
-
         addDiaryBtn.addActionListener(e -> openAddDiaryDialog());
-        deleteDiaryBtn.addActionListener(e -> deleteSelectedDiary());
 
+        reloadDiaryTable();
         return panel;
     }
 
@@ -197,9 +518,10 @@ public class GUI {
                 contentPreview = contentPreview.substring(0, 20) + "...";
             }
             diaryTableModel.addRow(new Object[]{
-                    CDF.of(d.getDate()),
+                    formatDateWithWeekday(d.getDate()),  // 💡 用你寫好的方法
                     d.getTitle(),
-                    contentPreview
+                    contentPreview,
+                    "操作"
             });
         }
     }
@@ -424,6 +746,8 @@ public class GUI {
         formPanel.add(new JLabel("內容:"), gbc);
         gbc.gridx = 1; gbc.gridy = 2;
         JTextArea contentArea = new JTextArea(6, 20);
+        contentArea.setLineWrap(true);
+        contentArea.setWrapStyleWord(true);
         JScrollPane contentScroll = new JScrollPane(contentArea);
         formPanel.add(contentScroll, gbc);
 
@@ -471,17 +795,6 @@ public class GUI {
         dialog.setVisible(true);
     }
 
-    private void deleteSelectedDiary() {
-        int idx = diaryTable.getSelectedRow();
-        if (idx >= 0) {
-            int confirm = JOptionPane.showConfirmDialog(frame, "確定要刪除此筆日記？", "刪除確認", JOptionPane.YES_NO_OPTION);
-            if (confirm == JOptionPane.YES_OPTION) {
-                diaryList.remove(idx);
-                DiaryManager.save(diaryList);
-                refreshDiaryTable();
-            }
-        }
-    }
 
     // 日期格式化工具，方便輸出 yyyy/MM/dd
     static class CDF {
