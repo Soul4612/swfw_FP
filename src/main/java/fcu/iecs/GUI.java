@@ -12,6 +12,7 @@ import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.awt.event.*;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.Locale;
@@ -232,9 +233,9 @@ public class GUI {
     }
 
     private class DiaryEditDialog extends JDialog {
-        private JComboBox<Integer> yearCombo;
-        private JComboBox<Integer> monthCombo;
-        private JComboBox<Integer> dayCombo;
+        private JSpinner yearSpinner;
+        private JSpinner monthSpinner;
+        private JSpinner daySpinner;
         private JTextField titleField;
         private JTextArea contentArea;
         private boolean saved = false;
@@ -244,18 +245,10 @@ public class GUI {
             setSize(480, 400);
             setLocationRelativeTo(owner);
 
-            // 建立年、月、日下拉選單
-            yearCombo = new JComboBox<>();
-            for (int y = 2020; y <= 2050; y++) yearCombo.addItem(y);
-            yearCombo.setSelectedItem(date.getYear());
-
-            monthCombo = new JComboBox<>();
-            for (int m = 1; m <= 12; m++) monthCombo.addItem(m);
-            monthCombo.setSelectedItem(date.getMonthValue());
-
-            dayCombo = new JComboBox<>();
-            for (int d = 1; d <= 31; d++) dayCombo.addItem(d);
-            dayCombo.setSelectedItem(date.getDayOfMonth());
+            // 建立 JSpinner：年 / 月 / 日
+            yearSpinner = new JSpinner(new SpinnerNumberModel(date.getYear(), 2020, 2050, 1));
+            monthSpinner = new JSpinner(new SpinnerNumberModel(date.getMonthValue(), 1, 12, 1));
+            daySpinner = new JSpinner(new SpinnerNumberModel(date.getDayOfMonth(), 1, 31, 1));
 
             titleField = new JTextField(title);
             contentArea = new JTextArea(content);
@@ -263,7 +256,7 @@ public class GUI {
             contentArea.setWrapStyleWord(true);
             contentArea.setFont(new Font("微軟正黑體", Font.PLAIN, 14));
 
-            // formPanel 用 BorderLayout 分成上下兩區
+            // formPanel 用 BorderLayout
             JPanel formPanel = new JPanel(new BorderLayout(5, 5));
 
             // 上方：日期 + 標題
@@ -273,11 +266,11 @@ public class GUI {
             // 日期區
             JPanel datePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
             datePanel.add(new JLabel("日期:"));
-            datePanel.add(yearCombo);
+            datePanel.add(yearSpinner);
             datePanel.add(new JLabel("年"));
-            datePanel.add(monthCombo);
+            datePanel.add(monthSpinner);
             datePanel.add(new JLabel("月"));
-            datePanel.add(dayCombo);
+            datePanel.add(daySpinner);
             datePanel.add(new JLabel("日"));
 
             // 標題區
@@ -286,27 +279,29 @@ public class GUI {
             titlePanel.add(titleField, BorderLayout.CENTER);
 
             topPanel.add(datePanel);
+            topPanel.add(Box.createVerticalStrut(5));
             topPanel.add(titlePanel);
 
             formPanel.add(topPanel, BorderLayout.NORTH);
 
-            // 中央：內容區，標籤＋大編輯框
+            // 中央：內容
             JPanel contentPanel = new JPanel(new BorderLayout());
             contentPanel.add(new JLabel("內容:"), BorderLayout.NORTH);
-
             JScrollPane scrollPane = new JScrollPane(contentArea);
             scrollPane.setPreferredSize(new Dimension(440, 200));
             contentPanel.add(scrollPane, BorderLayout.CENTER);
 
             formPanel.add(contentPanel, BorderLayout.CENTER);
 
-            // 按鈕區
+            // 按鈕
             JButton saveBtn = new JButton("保存");
             JButton cancelBtn = new JButton("取消");
 
             saveBtn.addActionListener(e -> {
                 try {
                     LocalDate editedDate = getDate();
+                    // 驗證日期合法（例如 2/30）
+                    editedDate.getDayOfMonth();  // 呼叫觸發例外（如果不合法）
                     saved = true;
                     setVisible(false);
                 } catch (Exception ex) {
@@ -334,11 +329,10 @@ public class GUI {
         }
 
         public LocalDate getDate() {
-            return LocalDate.of(
-                    (Integer) yearCombo.getSelectedItem(),
-                    (Integer) monthCombo.getSelectedItem(),
-                    (Integer) dayCombo.getSelectedItem()
-            );
+            int y = (Integer) yearSpinner.getValue();
+            int m = (Integer) monthSpinner.getValue();
+            int d = (Integer) daySpinner.getValue();
+            return LocalDate.of(y, m, d);
         }
 
         public String getTitle() {
@@ -349,7 +343,6 @@ public class GUI {
             return contentArea.getText();
         }
     }
-
 
 
 
