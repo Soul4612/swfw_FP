@@ -30,6 +30,11 @@ public abstract class Entry implements Comparable<Entry> {
         this.title = title;
     }
 
+    public void edit(LocalDate date, String title) {
+        setDate(date);
+        setTitle(title);
+    }
+
     @Override
     public int compareTo(Entry o) {
         int cmp = this.date.compareTo(o.date);
@@ -38,5 +43,4 @@ public abstract class Entry implements Comparable<Entry> {
         }
         return cmp;
     }
-
 }

@@ -14,8 +14,7 @@ public class DiaryEntry extends Entry {
     }
 
     public void edit(LocalDate date, String title, String content) {
-        setDate(date);
-        setTitle(title);
+        super.edit(date, title);
         setContent(content);
     }
 

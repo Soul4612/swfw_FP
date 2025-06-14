@@ -43,6 +43,13 @@ public class RecordEntry extends Entry {
         this.amount = amount;
     }
 
+    public void edit(LocalDate date, String title, RecordType recordType, String category, int amount) {
+        super.edit(date, title);
+        setRecordType(recordType);
+        setCategory(category);
+        setAmount(amount);
+    }
+
     @Override
     public String toString() {
         return "[記帳] %s %s %s\n%s - $%d".formatted(CDF.of(date), recordType, category, title, amount);
