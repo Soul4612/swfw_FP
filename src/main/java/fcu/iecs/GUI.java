@@ -246,7 +246,7 @@ public class GUI {
             setLocationRelativeTo(owner);
 
             // 建立 JSpinner：年 / 月 / 日
-            yearSpinner = new JSpinner(new SpinnerNumberModel(date.getYear(), 2020, 2050, 1));
+            yearSpinner = new JSpinner(new SpinnerNumberModel(date.getYear(), 1800, 2500, 1));
             monthSpinner = new JSpinner(new SpinnerNumberModel(date.getMonthValue(), 1, 12, 1));
             daySpinner = new JSpinner(new SpinnerNumberModel(date.getDayOfMonth(), 1, 31, 1));
 
