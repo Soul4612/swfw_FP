@@ -23,12 +23,24 @@ public class RecordEntry extends Entry {
         return recordType;
     }
 
+    public void setRecordType(RecordType recordType) {
+        this.recordType = recordType;
+    }
+
     public String getCategory() {
         return category;
     }
 
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
     public int getAmount() {
         return amount;
+    }
+
+    public void setAmount(int amount) {
+        this.amount = amount;
     }
 
     @Override

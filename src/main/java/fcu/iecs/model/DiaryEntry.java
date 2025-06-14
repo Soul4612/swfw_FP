@@ -13,8 +13,18 @@ public class DiaryEntry extends Entry {
         this.content = content;
     }
 
+    public void edit(LocalDate date, String title, String content) {
+        setDate(date);
+        setTitle(title);
+        setContent(content);
+    }
+
     public String getContent() {
         return content;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
     }
 
     @Override
