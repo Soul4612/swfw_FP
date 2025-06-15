@@ -10,15 +10,9 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellEditor;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
-import java.awt.event.*;
 import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.time.format.TextStyle;
-import java.util.Locale;
 import java.util.List;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class GUI {
     private JFrame frame;
@@ -44,13 +38,12 @@ public class GUI {
     private Set<String> expenseCategories;
     private Set<String> incomeCategories;
 
-    private String generateContentSummary(String content) {
-        return content.length() > 10 ? content.substring(0, 10) + "..." : content;
-    }
-
-
     // 日記資料
     private List<DiaryEntry> diaryList;
+
+    private String generateContentSummary(String content) {
+        return content.length() > 20 ? content.substring(0, 20) + "..." : content;
+    }
 
     class ButtonRenderer extends JPanel implements TableCellRenderer {
         private final JButton viewBtn = new JButton("檢視");
@@ -69,32 +62,20 @@ public class GUI {
             Color bg = isSelected ? table.getSelectionBackground() : table.getBackground();
             Color fg = isSelected ? table.getSelectionForeground() : table.getForeground();
 
-            setBackground(bg); // JPanel 背景仍跟欄位一樣，保持協調
-
-            // 按鈕背景改深灰色，跟欄位分開
-            viewBtn.setBackground(Color.DARK_GRAY);
-            deleteBtn.setBackground(Color.DARK_GRAY);
-
-            // 按鈕文字改白色或淺色，保證看得清楚
-            viewBtn.setForeground(Color.WHITE);
-            deleteBtn.setForeground(Color.WHITE);
-
-            // 如果想避免選取時按鈕變色，可考慮加這行，保持深灰色不變
-            viewBtn.setOpaque(true);
-            deleteBtn.setOpaque(true);
+            setBackground(bg);
 
             viewBtn.setPreferredSize(new Dimension(60, 19));
+            viewBtn.setBackground(Color.DARK_GRAY);
+            viewBtn.setForeground(Color.WHITE);
+            viewBtn.setOpaque(true);
+
             deleteBtn.setPreferredSize(new Dimension(60, 19));
+            deleteBtn.setBackground(Color.DARK_GRAY);
+            deleteBtn.setForeground(Color.WHITE);
+            deleteBtn.setOpaque(true);
 
             return this;
         }
-    }
-
-    private static String formatDateWithWeekday(LocalDate date) {
-        String formattedDate = date.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
-        String[] chineseDays = {"一", "二", "三", "四", "五", "六", "日"};
-        String weekday = chineseDays[date.getDayOfWeek().getValue() - 1];
-        return formattedDate + " (" + weekday + ")";
     }
 
     private void reloadDiaryTable() {
@@ -102,7 +83,7 @@ public class GUI {
 
         for (DiaryEntry entry : diaryList) {
             diaryTableModel.addRow(new Object[]{
-                    formatDateWithWeekday(entry.getDate()),
+                    CDF.of(entry.getDate()),
                     entry.getTitle(),
                     generateContentSummary(entry.getContent()),
                     "操作"
@@ -117,6 +98,7 @@ public class GUI {
         private int currentRow;
 
         private DefaultTableModel diaryTableModel;
+
         public ButtonEditor(JCheckBox checkBox, DefaultTableModel model) {
             this.diaryTableModel = model;
             panel.setLayout(new FlowLayout(FlowLayout.CENTER, 5, 0));
@@ -132,10 +114,7 @@ public class GUI {
                 dialog.setVisible(true);
 
                 if (dialog.isUpdated()) {
-                    // 1. 更新 DiaryEntry 本體 (這你原本應該做了)
-                    // 2. 重新排序 diaryList，確保順序正確
-                    diaryList.sort(Comparator.comparing(DiaryEntry::getDate));
-                    // 3. 重新載入表格，且格式化日期為 YYYY/MM/DD
+                    DiaryManager.save(diaryList);
                     reloadDiaryTable();
                 }
 
@@ -166,10 +145,9 @@ public class GUI {
         }
     }
 
-    // GUI.java 裡面，class GUI 內部新增這段
     private class DiaryViewDialog extends JDialog {
-        private DiaryEntry entry;  // 存日記物件
-        private boolean updated = false;  // 屬於這個對話框的欄位
+        private DiaryEntry entry;
+        private boolean updated = false;
 
         public DiaryViewDialog(Frame owner, DiaryEntry entry) {
             super(owner, "日記檢視", true);
@@ -178,8 +156,7 @@ public class GUI {
             setSize(400, 300);
             setLocationRelativeTo(owner);
 
-            // 改成用 formatDateWithWeekday 顯示日期 + 星期
-            JLabel dateLabel = new JLabel("日期: " + formatDateWithWeekday(entry.getDate()));
+            JLabel dateLabel = new JLabel("日期: " + CDF.of(entry.getDate()));
             dateLabel.setFont(new Font("微軟正黑體", Font.BOLD, 14));
 
             JLabel titleLabel = new JLabel("標題: " + entry.getTitle());
@@ -203,11 +180,11 @@ public class GUI {
 
                 if (editDialog.isSaved()) {
                     entry.edit(
-                            editDialog.getDate(),
-                            editDialog.getTitle(),
-                            editDialog.getContent()
+                            editDialog.getDatefromGUI(),
+                            editDialog.getTitlefromGUI(),
+                            editDialog.getContentfromGUI()
                     );
-                    updated = true;  // 成功編輯後設為 true
+                    updated = true;
                     this.dispose();
                 }
             });
@@ -256,7 +233,6 @@ public class GUI {
             contentArea.setWrapStyleWord(true);
             contentArea.setFont(new Font("微軟正黑體", Font.PLAIN, 14));
 
-            // formPanel 用 BorderLayout
             JPanel formPanel = new JPanel(new BorderLayout(5, 5));
 
             // 上方：日期 + 標題
@@ -293,13 +269,12 @@ public class GUI {
 
             formPanel.add(contentPanel, BorderLayout.CENTER);
 
-            // 按鈕
             JButton saveBtn = new JButton("保存");
             JButton cancelBtn = new JButton("取消");
 
             saveBtn.addActionListener(e -> {
                 try {
-                    LocalDate editedDate = getDate();
+                    LocalDate editedDate = getDatefromGUI();
                     // 驗證日期合法（例如 2/30）
                     editedDate.getDayOfMonth();  // 呼叫觸發例外（如果不合法）
                     saved = true;
@@ -328,23 +303,21 @@ public class GUI {
             return saved;
         }
 
-        public LocalDate getDate() {
+        public LocalDate getDatefromGUI() {
             int y = (Integer) yearSpinner.getValue();
             int m = (Integer) monthSpinner.getValue();
             int d = (Integer) daySpinner.getValue();
             return LocalDate.of(y, m, d);
         }
 
-        public String getTitle() {
+        public String getTitlefromGUI() {
             return titleField.getText();
         }
 
-        public String getContent() {
+        public String getContentfromGUI() {
             return contentArea.getText();
         }
     }
-
-
 
     public GUI() {
         try {
@@ -381,13 +354,13 @@ public class GUI {
 
     private JPanel createRecordPanel() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
-        panel.setBorder(new EmptyBorder(10,10,10,10));
+        panel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
         // 頂部 summary 顯示
         JPanel summaryPanel = new JPanel(new GridLayout(1, 3, 10, 10));
         incomeLabel = new JLabel("總收入: 0");
         expenseLabel = new JLabel("總支出: 0");
-        balanceLabel = new JLabel("結餘: 0");
+        balanceLabel = new JLabel("總結餘: 0");
 
         Font font = new Font("微軟正黑體", Font.BOLD, 16);
         incomeLabel.setFont(font);
@@ -418,7 +391,6 @@ public class GUI {
         recordTable.getColumnModel().getColumn(0).setMaxWidth(100);
         recordTable.getColumnModel().getColumn(0).setMinWidth(100);
 
-
         // 底部按鈕
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         addRecordBtn = new JButton("新增");
@@ -433,7 +405,6 @@ public class GUI {
             deleteRecordBtn.setEnabled(recordTable.getSelectedRow() != -1);
         });
 
-        // 按鈕事件
         addRecordBtn.addActionListener(e -> openAddRecordDialog());
         deleteRecordBtn.addActionListener(e -> deleteSelectedRecord());
 
@@ -442,7 +413,7 @@ public class GUI {
 
     private JPanel createDiaryPanel() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
-        panel.setBorder(new EmptyBorder(10,10,10,10));
+        panel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
         diaryTableModel = new DefaultTableModel(
                 new Object[]{"日期", "標題", "內容摘要", "操作"}, 0) {
@@ -487,7 +458,7 @@ public class GUI {
 
         incomeLabel.setText("總收入: " + totalIncome);
         expenseLabel.setText("總支出: " + totalExpense);
-        balanceLabel.setText("結餘: " + (totalIncome - totalExpense));
+        balanceLabel.setText("總結餘: " + (totalIncome - totalExpense));
     }
 
     private void refreshRecordTable() {
@@ -508,10 +479,10 @@ public class GUI {
         for (DiaryEntry d : diaryList) {
             String contentPreview = d.getContent();
             if (contentPreview.length() > 20) {
-                contentPreview = contentPreview.substring(0, 20) + "...";
+                contentPreview = generateContentSummary(contentPreview);
             }
             diaryTableModel.addRow(new Object[]{
-                    formatDateWithWeekday(d.getDate()),  // 💡 用你寫好的方法
+                    CDF.of(d.getDate()),
                     d.getTitle(),
                     contentPreview,
                     "操作"
@@ -528,15 +499,17 @@ public class GUI {
 
         JPanel formPanel = new JPanel();
         formPanel.setLayout(new GridBagLayout());
-        formPanel.setBorder(new EmptyBorder(10,10,10,10));
+        formPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(6,6,6,6);
+        gbc.insets = new Insets(6, 6, 6, 6);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         // 日期（年/月/日）
-        gbc.gridx = 0; gbc.gridy = 0;
+        gbc.gridx = 0;
+        gbc.gridy = 0;
         formPanel.add(new JLabel("日期:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 0;
+        gbc.gridx = 1;
+        gbc.gridy = 0;
 
         // 三個 Spinner
         SpinnerNumberModel yearModel = new SpinnerNumberModel(LocalDate.now().getYear(), 1900, 2100, 1);
@@ -557,23 +530,29 @@ public class GUI {
         formPanel.add(datePanel, gbc);
 
         // 標題
-        gbc.gridx = 0; gbc.gridy = 1;
+        gbc.gridx = 0;
+        gbc.gridy = 1;
         formPanel.add(new JLabel("標題:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 1;
+        gbc.gridx = 1;
+        gbc.gridy = 1;
         JTextField titleField = new JTextField();
         formPanel.add(titleField, gbc);
 
         // 收入/支出
-        gbc.gridx = 0; gbc.gridy = 2;
+        gbc.gridx = 0;
+        gbc.gridy = 2;
         formPanel.add(new JLabel("收入/支出:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 2;
+        gbc.gridx = 1;
+        gbc.gridy = 2;
         JComboBox<RecordType> recordTypeCombo = new JComboBox<>(RecordType.values());
         formPanel.add(recordTypeCombo, gbc);
 
         // 類型
-        gbc.gridx = 0; gbc.gridy = 3;
+        gbc.gridx = 0;
+        gbc.gridy = 3;
         formPanel.add(new JLabel("類型:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 3;
+        gbc.gridx = 1;
+        gbc.gridy = 3;
 
         // 類型下拉 + 新增類型按鈕
         JPanel categoryPanel = new JPanel(new BorderLayout(5, 0));
@@ -587,9 +566,11 @@ public class GUI {
         formPanel.add(categoryPanel, gbc);
 
         // 金額
-        gbc.gridx = 0; gbc.gridy = 4;
+        gbc.gridx = 0;
+        gbc.gridy = 4;
         formPanel.add(new JLabel("金額:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 4;
+        gbc.gridx = 1;
+        gbc.gridy = 4;
         JTextField amountField = new JTextField();
         formPanel.add(amountField, gbc);
 
@@ -696,19 +677,21 @@ public class GUI {
         JDialog dialog = new JDialog(frame, "新增日記", true);
         dialog.setSize(400, 350);
         dialog.setLocationRelativeTo(frame);
-        dialog.setLayout(new BorderLayout(10,10));
+        dialog.setLayout(new BorderLayout(10, 10));
         dialog.setResizable(false);
 
         JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBorder(new EmptyBorder(10,10,10,10));
+        formPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(6,6,6,6);
+        gbc.insets = new Insets(6, 6, 6, 6);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         // 日期（年/月/日）
-        gbc.gridx = 0; gbc.gridy = 0;
+        gbc.gridx = 0;
+        gbc.gridy = 0;
         formPanel.add(new JLabel("日期:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 0;
+        gbc.gridx = 1;
+        gbc.gridy = 0;
 
         SpinnerNumberModel yearModel = new SpinnerNumberModel(LocalDate.now().getYear(), 1900, 2100, 1);
         JSpinner yearSpinner = new JSpinner(yearModel);
@@ -728,16 +711,20 @@ public class GUI {
         formPanel.add(datePanel, gbc);
 
         // 標題
-        gbc.gridx = 0; gbc.gridy = 1;
+        gbc.gridx = 0;
+        gbc.gridy = 1;
         formPanel.add(new JLabel("標題:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 1;
+        gbc.gridx = 1;
+        gbc.gridy = 1;
         JTextField titleField = new JTextField();
         formPanel.add(titleField, gbc);
 
         // 內容
-        gbc.gridx = 0; gbc.gridy = 2;
+        gbc.gridx = 0;
+        gbc.gridy = 2;
         formPanel.add(new JLabel("內容:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 2;
+        gbc.gridx = 1;
+        gbc.gridy = 2;
         JTextArea contentArea = new JTextArea(6, 20);
         contentArea.setLineWrap(true);
         contentArea.setWrapStyleWord(true);
@@ -786,14 +773,5 @@ public class GUI {
         cancelBtn.addActionListener(e -> dialog.dispose());
 
         dialog.setVisible(true);
-    }
-
-
-    // 日期格式化工具，方便輸出 yyyy/MM/dd
-    static class CDF {
-        static String of(LocalDate date) {
-            return String.format("%04d/%02d/%02d",
-                    date.getYear(), date.getMonthValue(), date.getDayOfMonth());
-        }
     }
 }
