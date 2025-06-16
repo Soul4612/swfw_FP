@@ -10,13 +10,26 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellEditor;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
+import java.io.File;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.*;
 
 public class GUI {
+    // 記帳、分類資料與儲存器
+    private EntryManager<RecordEntry> recordManager;
+    private CategoryManager expenseManager;
+    private CategoryManager incomeManager;
+    private List<RecordEntry> recordList;
+    private Set<String> expenseCategories;
+    private Set<String> incomeCategories;
+
+    // 日記資料與儲存器
+    private EntryManager<DiaryEntry> diaryManager;
+    private List<DiaryEntry> diaryList;
+
+    // 頁面元件
     private JFrame frame;
-    private JTabbedPane tabbedPane;
 
     // 記帳頁面元件
     private JLabel incomeLabel;
@@ -24,35 +37,15 @@ public class GUI {
     private JLabel balanceLabel;
     private JTable recordTable;
     private DefaultTableModel recordTableModel;
-    private JButton addRecordBtn;
-    private JButton deleteRecordBtn;
 
-    // 日記頁面元件
-    private JTable diaryTable;
     private DefaultTableModel diaryTableModel;
-    private JButton addDiaryBtn;
-    private JButton deleteDiaryBtn;
 
-    // 記帳資料
-    private List<RecordEntry> recordList;
-    private Set<String> expenseCategories;
-    private Set<String> incomeCategories;
-    // 記帳資料儲存器
-    private EntryManager<RecordEntry> recordManager;
-    //分類資料儲存器
-    private CategoryManager expenseManager;
-    private CategoryManager incomeManager;
-
-    // 日記資料
-    private List<DiaryEntry> diaryList;
-    // 日記資料儲存器
-    private EntryManager<DiaryEntry> diaryManager;
-
-    private String generateContentSummary(String content) {
+    // 避免文字過長的概略工具
+    private static String generateContentSummary(String content) {
         return content.length() > 20 ? content.substring(0, 20) + "..." : content;
     }
 
-    class ButtonRenderer extends JPanel implements TableCellRenderer {
+    private class ButtonRenderer extends JPanel implements TableCellRenderer {
         private final JButton viewBtn = new JButton("檢視");
         private final JButton deleteBtn = new JButton("刪除");
 
@@ -85,29 +78,13 @@ public class GUI {
         }
     }
 
-    private void reloadDiaryTable() {
-        diaryTableModel.setRowCount(0); // 清空表格
-
-        for (DiaryEntry entry : diaryList) {
-            diaryTableModel.addRow(new Object[]{
-                    CDF.of(entry.getDate()),
-                    entry.getTitle(),
-                    generateContentSummary(entry.getContent()),
-                    "操作"
-            });
-        }
-    }
-
-    class ButtonEditor extends AbstractCellEditor implements TableCellEditor {
+    private class ButtonEditor extends AbstractCellEditor implements TableCellEditor {
         private final JPanel panel = new JPanel();
         private final JButton viewBtn = new JButton("檢視");
         private final JButton deleteBtn = new JButton("刪除");
         private int currentRow;
 
-        private DefaultTableModel diaryTableModel;
-
         public ButtonEditor(JCheckBox checkBox, DefaultTableModel model) {
-            this.diaryTableModel = model;
             panel.setLayout(new FlowLayout(FlowLayout.CENTER, 5, 0));
             panel.add(viewBtn);
             panel.add(deleteBtn);
@@ -122,7 +99,7 @@ public class GUI {
 
                 if (dialog.isUpdated()) {
                     diaryManager.save(diaryList);
-                    reloadDiaryTable();
+                    refreshDiaryTable();
                 }
 
                 fireEditingStopped();
@@ -152,13 +129,11 @@ public class GUI {
         }
     }
 
-    private class DiaryViewDialog extends JDialog {
-        private DiaryEntry entry;
+    private static class DiaryViewDialog extends JDialog {
         private boolean updated = false;
 
         public DiaryViewDialog(Frame owner, DiaryEntry entry) {
             super(owner, "日記檢視", true);
-            this.entry = entry;
 
             setSize(400, 300);
             setLocationRelativeTo(owner);
@@ -187,9 +162,9 @@ public class GUI {
 
                 if (editDialog.isSaved()) {
                     entry.edit(
-                            editDialog.getDatefromGUI(),
-                            editDialog.getTitlefromGUI(),
-                            editDialog.getContentfromGUI()
+                            editDialog.getDateFromGUI(),
+                            editDialog.getTitleFromGUI(),
+                            editDialog.getContentFromGUI()
                     );
                     updated = true;
                     this.dispose();
@@ -216,7 +191,7 @@ public class GUI {
         }
     }
 
-    private class DiaryEditDialog extends JDialog {
+    private static class DiaryEditDialog extends JDialog {
         private JSpinner yearSpinner;
         private JSpinner monthSpinner;
         private JSpinner daySpinner;
@@ -281,9 +256,7 @@ public class GUI {
 
             saveBtn.addActionListener(e -> {
                 try {
-                    LocalDate editedDate = getDatefromGUI();
-                    // 驗證日期合法（例如 2/30）
-                    editedDate.getDayOfMonth();  // 呼叫觸發例外（如果不合法）
+                    getDateFromGUI();
                     saved = true;
                     setVisible(false);
                 } catch (Exception ex) {
@@ -310,18 +283,18 @@ public class GUI {
             return saved;
         }
 
-        public LocalDate getDatefromGUI() {
+        public LocalDate getDateFromGUI() {
             int y = (Integer) yearSpinner.getValue();
             int m = (Integer) monthSpinner.getValue();
             int d = (Integer) daySpinner.getValue();
             return LocalDate.of(y, m, d);
         }
 
-        public String getTitlefromGUI() {
+        public String getTitleFromGUI() {
             return titleField.getText();
         }
 
-        public String getContentfromGUI() {
+        public String getContentFromGUI() {
             return contentArea.getText();
         }
     }
@@ -348,7 +321,7 @@ public class GUI {
         frame.setMinimumSize(new Dimension(800, 600));  // 設定視窗最小尺寸
         frame.setLocationRelativeTo(null);
 
-        tabbedPane = new JTabbedPane();
+        JTabbedPane tabbedPane = new JTabbedPane();
 
         tabbedPane.addTab("記帳", createRecordPanel());
         tabbedPane.addTab("日記", createDiaryPanel());
@@ -358,7 +331,6 @@ public class GUI {
 
     public void show() {
         frame.setVisible(true);
-        refreshRecordSummary();
         refreshRecordTable();
         refreshDiaryTable();
     }
@@ -402,22 +374,64 @@ public class GUI {
         recordTable.getColumnModel().getColumn(0).setMaxWidth(100);
         recordTable.getColumnModel().getColumn(0).setMinWidth(100);
 
-        // 底部按鈕
-        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        addRecordBtn = new JButton("新增");
-        deleteRecordBtn = new JButton("刪除");
+        // 底部的按鈕區
+        JPanel btnPanel = new JPanel(new GridLayout(1, 2));
+
+        // 對資料內容進行變動的按鈕區域
+        JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton addRecordBtn = new JButton("新增");
+        JButton deleteRecordBtn = new JButton("刪除");
         deleteRecordBtn.setEnabled(false);
-        btnPanel.add(addRecordBtn);
-        btnPanel.add(deleteRecordBtn);
+        controlPanel.add(addRecordBtn);
+        controlPanel.add(deleteRecordBtn);
+
+        // 匯出匯入備份資料的按鈕區域
+        JPanel backupPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JButton exportBtn = new JButton("匯出");
+        JButton importBtn = new JButton("匯入");
+        backupPanel.add(exportBtn);
+        backupPanel.add(importBtn);
+
+        btnPanel.add(backupPanel);
+        btnPanel.add(controlPanel);
+
         panel.add(btnPanel, BorderLayout.SOUTH);
 
         // 選擇表格列時啟用刪除按鈕
-        recordTable.getSelectionModel().addListSelectionListener((ListSelectionEvent e) -> {
-            deleteRecordBtn.setEnabled(recordTable.getSelectedRow() != -1);
-        });
+        recordTable.getSelectionModel().addListSelectionListener((ListSelectionEvent e) -> deleteRecordBtn.setEnabled(recordTable.getSelectedRow() != -1));
 
         addRecordBtn.addActionListener(e -> openAddRecordDialog());
         deleteRecordBtn.addActionListener(e -> deleteSelectedRecord());
+        exportBtn.addActionListener(e -> {
+            JFileChooser chooser = new JFileChooser(System.getProperty("user.home") + "\\Downloads");
+            chooser.setDialogTitle("匯出");
+            if (chooser.showSaveDialog(frame) == JFileChooser.APPROVE_OPTION) {
+                File file = chooser.getSelectedFile();
+                String filePath = file.getPath() + ".json";
+                file = new File(filePath);
+                recordManager.exportData(file);
+                JOptionPane.showMessageDialog(frame, "匯出成功！");
+            }
+        });
+        importBtn.addActionListener(e -> {
+            JFileChooser chooser = new JFileChooser(System.getProperty("user.home") + "\\Downloads");
+            chooser.setDialogTitle("匯入");
+            if (chooser.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION) {
+                File file = chooser.getSelectedFile();
+                try {
+                    recordManager.importData(file);
+                    recordList = recordManager.load();
+                    expenseManager.importData(recordList);
+                    expenseCategories = expenseManager.load();
+                    incomeManager.importData(recordList);
+                    incomeCategories = incomeManager.load();
+                    refreshRecordTable();
+                    JOptionPane.showMessageDialog(frame, "匯入成功！");
+                } catch (Exception exception) {
+                    JOptionPane.showMessageDialog(frame, "匯入失敗!", "錯誤", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
 
         return panel;
     }
@@ -433,7 +447,8 @@ public class GUI {
                 return column == 3;  // 只有操作欄可互動（實際上由按鈕 editor 處理）
             }
         };
-        diaryTable = new JTable(diaryTableModel);
+        // 日記頁面元件
+        JTable diaryTable = new JTable(diaryTableModel);
         diaryTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         JScrollPane scrollPane = new JScrollPane(diaryTable);
         panel.add(scrollPane, BorderLayout.CENTER);
@@ -447,18 +462,59 @@ public class GUI {
         diaryTable.getColumnModel().getColumn(3).setCellRenderer(new ButtonRenderer());
         diaryTable.getColumnModel().getColumn(3).setCellEditor(new ButtonEditor(new JCheckBox(), diaryTableModel));
 
-        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        addDiaryBtn = new JButton("新增");
-        btnPanel.add(addDiaryBtn);
+        // 底部的按鈕區
+        JPanel btnPanel = new JPanel(new GridLayout(1, 2));
+
+        // 對資料內容進行變動的按鈕區域
+        JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton addDiaryBtn = new JButton("新增");
+        controlPanel.add(addDiaryBtn);
+
+        // 匯出匯入備份資料的按鈕區域
+        JPanel backupPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JButton exportBtn = new JButton("匯出");
+        JButton importBtn = new JButton("匯入");
+        backupPanel.add(exportBtn);
+        backupPanel.add(importBtn);
+
+        btnPanel.add(backupPanel);
+        btnPanel.add(controlPanel);
+
         panel.add(btnPanel, BorderLayout.SOUTH);
 
         addDiaryBtn.addActionListener(e -> openAddDiaryDialog());
+        exportBtn.addActionListener(e -> {
+            JFileChooser chooser = new JFileChooser(System.getProperty("user.home") + "\\Downloads");
+            chooser.setDialogTitle("匯出");
+            if (chooser.showSaveDialog(frame) == JFileChooser.APPROVE_OPTION) {
+                File file = chooser.getSelectedFile();
+                String filePath = file.getPath() + ".json";
+                file = new File(filePath);
+                diaryManager.exportData(file);
+                JOptionPane.showMessageDialog(frame, "匯出成功！");
+            }
+        });
+        importBtn.addActionListener(e -> {
+            JFileChooser chooser = new JFileChooser(System.getProperty("user.home") + "\\Downloads");
+            chooser.setDialogTitle("匯入");
+            if (chooser.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION) {
+                File file = chooser.getSelectedFile();
+                try {
+                    diaryManager.importData(file);
+                    diaryList = diaryManager.load();
+                    refreshDiaryTable();
+                    JOptionPane.showMessageDialog(frame, "匯入成功！");
+                } catch (Exception exception) {
+                    JOptionPane.showMessageDialog(frame, "匯入失敗!", "錯誤", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
 
-        reloadDiaryTable();
+        refreshDiaryTable();
         return panel;
     }
 
-    private void refreshRecordSummary() {
+    private void refreshRecordTable() {
         int totalIncome = recordList.stream()
                 .filter(r -> r.getRecordType() == RecordType.INCOME)
                 .mapToInt(RecordEntry::getAmount).sum();
@@ -470,9 +526,7 @@ public class GUI {
         incomeLabel.setText("總收入: " + totalIncome);
         expenseLabel.setText("總支出: " + totalExpense);
         balanceLabel.setText("總結餘: " + (totalIncome - totalExpense));
-    }
 
-    private void refreshRecordTable() {
         recordTableModel.setRowCount(0);
         for (RecordEntry r : recordList) {
             recordTableModel.addRow(new Object[]{
@@ -488,14 +542,10 @@ public class GUI {
     private void refreshDiaryTable() {
         diaryTableModel.setRowCount(0);
         for (DiaryEntry d : diaryList) {
-            String contentPreview = d.getContent();
-            if (contentPreview.length() > 20) {
-                contentPreview = generateContentSummary(contentPreview);
-            }
             diaryTableModel.addRow(new Object[]{
                     CDF.of(d.getDate()),
                     d.getTitle(),
-                    contentPreview,
+                    generateContentSummary(d.getContent()),
                     "操作"
             });
         }
@@ -662,7 +712,6 @@ public class GUI {
                     incomeCategories.add(category);
                     incomeManager.save(incomeCategories);
                 }
-                refreshRecordSummary();
                 refreshRecordTable();
                 dialog.dispose();
             } catch (Exception ex) {
@@ -682,7 +731,6 @@ public class GUI {
             if (confirm == JOptionPane.YES_OPTION) {
                 recordList.remove(idx);
                 recordManager.save(recordList);
-                refreshRecordSummary();
                 refreshRecordTable();
             }
         }

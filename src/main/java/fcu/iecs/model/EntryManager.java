@@ -41,4 +41,22 @@ public class EntryManager<T extends Entry> {
             throw new RuntimeException("無法載入資料", e);
         }
     }
+
+    public void exportData(File file) {
+        try {
+            List<T> entries = load();
+            mapper.writerWithDefaultPrettyPrinter().writeValue(file, entries);
+        } catch (IOException e) {
+            throw new RuntimeException("匯出失敗", e);
+        }
+    }
+
+    public void importData(File file) {
+        try {
+            List<T> entries = mapper.readValue(file, type);
+            save(entries);
+        } catch (IOException e) {
+            throw new RuntimeException("匯入失敗", e);
+        }
+    }
 }
