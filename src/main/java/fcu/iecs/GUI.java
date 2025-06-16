@@ -37,9 +37,16 @@ public class GUI {
     private List<RecordEntry> recordList;
     private Set<String> expenseCategories;
     private Set<String> incomeCategories;
+    // 記帳資料儲存器
+    private EntryManager<RecordEntry> recordManager;
+    //分類資料儲存器
+    private CategoryManager expenseManager;
+    private CategoryManager incomeManager;
 
     // 日記資料
     private List<DiaryEntry> diaryList;
+    // 日記資料儲存器
+    private EntryManager<DiaryEntry> diaryManager;
 
     private String generateContentSummary(String content) {
         return content.length() > 20 ? content.substring(0, 20) + "..." : content;
@@ -114,7 +121,7 @@ public class GUI {
                 dialog.setVisible(true);
 
                 if (dialog.isUpdated()) {
-                    DiaryManager.save(diaryList);
+                    diaryManager.save(diaryList);
                     reloadDiaryTable();
                 }
 
@@ -126,7 +133,7 @@ public class GUI {
                         "確定要刪除此日記？", "刪除確認", JOptionPane.YES_NO_OPTION);
                 if (confirm == JOptionPane.YES_OPTION) {
                     diaryList.remove(currentRow);
-                    DiaryManager.save(diaryList);
+                    diaryManager.save(diaryList);
                     refreshDiaryTable();
                 }
                 fireEditingStopped();
@@ -326,10 +333,14 @@ public class GUI {
             e.printStackTrace();
         }
 
-        recordList = RecordManager.load();
-        expenseCategories = CategoryManager.load(RecordType.EXPENSE);
-        incomeCategories = CategoryManager.load(RecordType.INCOME);
-        diaryList = DiaryManager.load();
+        recordManager = new EntryManager<>("Record.json", RecordEntry.class);
+        recordList = recordManager.load();
+        expenseManager = new CategoryManager("ExpenseCategory.json", RecordType.EXPENSE);
+        expenseCategories = expenseManager.load();
+        incomeManager = new CategoryManager("IncomeCategory.json", RecordType.INCOME);
+        incomeCategories = incomeManager.load();
+        diaryManager = new EntryManager<>("Diary.json", DiaryEntry.class);
+        diaryList = diaryManager.load();
 
         frame = new JFrame("記帳與日記管理系統");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -592,10 +603,11 @@ public class GUI {
                 RecordType rt = (RecordType) recordTypeCombo.getSelectedItem();
                 if (rt == RecordType.EXPENSE) {
                     expenseCategories.add(newCat.trim());
+                    expenseManager.save(expenseCategories);
                 } else {
                     incomeCategories.add(newCat.trim());
+                    incomeManager.save(incomeCategories);
                 }
-                CategoryManager.save(rt, rt == RecordType.EXPENSE ? expenseCategories : incomeCategories);
                 refreshCategoryCombo.run();
                 JOptionPane.showMessageDialog(dialog, "新增類型成功！");
             }
@@ -640,13 +652,16 @@ public class GUI {
                 // 新增記錄
                 RecordEntry newEntry = new RecordEntry(date, title, rt, category, amount);
                 recordList.add(newEntry);
-                RecordManager.save(recordList);
+                recordManager.save(recordList);
 
                 // 更新類型集，確保同步
-                if (rt == RecordType.EXPENSE) expenseCategories.add(category);
-                else incomeCategories.add(category);
-                CategoryManager.save(rt, rt == RecordType.EXPENSE ? expenseCategories : incomeCategories);
-
+                if (rt == RecordType.EXPENSE) {
+                    expenseCategories.add(category);
+                    expenseManager.save(expenseCategories);
+                } else {
+                    incomeCategories.add(category);
+                    incomeManager.save(incomeCategories);
+                }
                 refreshRecordSummary();
                 refreshRecordTable();
                 dialog.dispose();
@@ -666,7 +681,7 @@ public class GUI {
             int confirm = JOptionPane.showConfirmDialog(frame, "確定要刪除此筆記錄？", "刪除確認", JOptionPane.YES_NO_OPTION);
             if (confirm == JOptionPane.YES_OPTION) {
                 recordList.remove(idx);
-                RecordManager.save(recordList);
+                recordManager.save(recordList);
                 refreshRecordSummary();
                 refreshRecordTable();
             }
@@ -761,7 +776,7 @@ public class GUI {
 
                 DiaryEntry newDiary = new DiaryEntry(date, title, content);
                 diaryList.add(newDiary);
-                DiaryManager.save(diaryList);
+                diaryManager.save(diaryList);
 
                 refreshDiaryTable();
                 dialog.dispose();
